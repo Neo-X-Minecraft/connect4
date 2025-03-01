@@ -1,332 +1,640 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <title>Connect 4</title>
-    <script src="c4i.js"></script>
-    <style>
-      body {
-        font-family: Arial;
-        text-align: center;
-        background-color: #f4f4f4;
-        margin: 0;
-        padding: 15px;
-      }
-      #modeToggles {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 50px;
-        margin-bottom: 20px;
-      }
-      .player-toggle {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-      }
-      .player-label {
-        margin-bottom: 10px;
-        font-size: 16px;
-      }
-      .toggle-switch {
-        position: relative;
-        width: 80px;
-        height: 40px;
-        background-color: #ddd;
-        border-radius: 20px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 5px;
-        box-sizing: border-box;
-        transition: background-color 0.3s;
-      }
-      .toggle-thumb {
-        position: absolute;
-        top: 5px;
-        left: 5px;
-        width: 30px;
-        height: 30px;
-        background-color: white;
-        border-radius: 50%;
-        transition: left 0.3s;
-        z-index: 0;
-      }
-      .toggle-switch.computer .toggle-thumb {
-        left: 45px;
-      }
-      .toggle-switch .icon {
-        width: 24px;
-        height: 24px;
-        position: relative;
-        z-index: 1;
-      }
-      #startGame {
-        background-color: #ddd;
-        border: none;
-        border-radius: 20px;
-        padding: 10px 20px;
-        font-size: 16px;
-        cursor: pointer;
-        transition: background-color 0.3s;
-        margin-top: 30px;
-      }
-      #startGame:hover {
-        background-color: #bbb;
-      }
-      #message {
-        font-size: 18px;
-        margin: 10px;
-      }
-      #gameContainer {
-        position: relative;
-        width: 540px;
-        height: 465px;
-        margin: auto;
-        margin-top: 75px;
-      }
-      #pellets {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 540px;
-        height: 465px;
-        z-index: 1;
-      }
-      #board {
-        position: absolute;
-        top: 0;
-        left: 0;
-        z-index: 2;
-        width: 540px;
-        height: 465px;
-        cursor: pointer;
-      }
-      .pellet {
-        position: absolute;
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        top: -60px;
-        transition-property: top;
-        transition-timing-function: cubic-bezier(0.47, 0, 0.745, 0.715);
-      }
-      .player1 {
-        background-color: red;
-      }
-      .player2 {
-        background-color: yellow;
-      }
-    </style>
-  </head>
-  <body>
-    <h1>Connect 4</h1>
-    <div id="modeToggles">
-      <div class="player-toggle" id="player1Toggle">
-        <span class="player-label">Player 1</span>
-        <div class="toggle-switch" data-player="1">
-          <div class="toggle-thumb"></div>
-          <div class="icon icon-human">
-            <svg viewBox="0 0 24 24" width="24" height="24">
-              <circle cx="15" cy="8" r="4" fill="#555"/>
-              <path d="M9,20c0-3.3,2.7-6,6-6s6,2.7,6,6" fill="#555"/>
-            </svg>
-          </div>
-          <div class="icon icon-computer">
-            <svg viewBox="0 0 24 24" width="24" height="24">
-              <rect y="4" width="18" height="12" rx="2" ry="2" fill="#555"/>
-              <rect x="5" y="18" width="8" height="2" fill="#555"/>
-            </svg>
-          </div>
-        </div>
-      </div>
-      <button id="startGame">Start Game</button>
-      <div class="player-toggle" id="player2Toggle">
-        <span class="player-label">Player 2</span>
-        <div class="toggle-switch" data-player="2">
-          <div class="toggle-thumb"></div>
-          <div class="icon icon-human">
-            <svg viewBox="0 0 24 24" width="24" height="24">
-              <circle cx="15" cy="8" r="4" fill="#555"/>
-              <path d="M9,20c0-3.3,2.7-6,6-6s6,2.7,6,6" fill="#555"/>
-            </svg>
-          </div>
-          <div class="icon icon-computer">
-            <svg viewBox="0 0 24 24" width="24" height="24">
-              <rect y="4" width="18" height="12" rx="2" ry="2" fill="#555"/>
-              <rect x="5" y="18" width="8" height="2" fill="#555"/>
-            </svg>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div id="message"></div>
-    <div id="gameContainer">
-      <div id="pellets"></div>
-      <svg id="board"></svg>
-    </div>
-    <script>
-      const rows = 6, cols = 7, holeDiameter = 60, gap = 15, cellSize = holeDiameter + gap, containerWidth = gap + cols * cellSize, containerHeight = gap + rows * cellSize, baseDuration = 150;
-      let game = { board: [], currentPlayer: 1, moveSequence: "", gameOver: false, animating: false, player1IsHuman: true, player2IsHuman: true, gameMode: "hvh" };
-      function initBoard() {
-        game.board = [];
-        for(let r=0; r<rows; r++){
-          let rowArr = [];
-          for(let c=0; c<cols; c++){
-            rowArr.push(0);
-          }
-          game.board.push(rowArr);
-        }
-      }
-      function createBoardSVG() {
-        let svg = document.getElementById("board");
-        let holes = "";
-        for(let r=0; r<rows; r++){
-          for(let c=0; c<cols; c++){
-            let cx = gap + c * cellSize + holeDiameter/2;
-            let cy = gap + r * cellSize + holeDiameter/2;
-            holes += `<circle cx="${cx}" cy="${cy}" r="${holeDiameter/2}" fill="black" />`;
-          }
-        }
-        svg.innerHTML = `<defs>
-          <mask id="mask">
-            <rect x="0" y="0" width="${containerWidth}" height="${containerHeight}" fill="white" />
-            ${holes}
-          </mask>
-        </defs>
-        <rect x="0" y="0" width="${containerWidth}" height="${containerHeight}" rx="30" ry="30" fill="blue" mask="url(#mask)" />`;
-      }
-      function updateMessage(msg) {
-        document.getElementById("message").innerText = msg;
-      }
-      function getAvailableRow(col) {
-        for(let r = rows - 1; r >= 0; r--){
-          if(game.board[r][col]===0)return r;
-        }
-        return -1;
-      }
-      function checkWin(row, col, player) {
-        function countDirection(r, c, dr, dc) {
-          let count = 0;
-          while(r>=0 && r<rows && c>=0 && c<cols && game.board[r][c]===player){
-            count++;
-            r += dr;
-            c += dc;
-          }
-          return count;
-        }
-        let count = countDirection(row, col, 0, -1) + countDirection(row, col, 0, 1) - 1;
-        if(count>=4)return true;
-        count = countDirection(row, col, -1, 0) + countDirection(row, col, 1, 0) - 1;
-        if(count>=4)return true;
-        count = countDirection(row, col, -1, -1) + countDirection(row, col, 1, 1) - 1;
-        if(count>=4)return true;
-        count = countDirection(row, col, -1, 1) + countDirection(row, col, 1, -1) - 1;
-        return count>=4;
-      }
-      function isBoardFull() {
-        for(let c=0; c<cols; c++){
-          if(getAvailableRow(c)!==-1)return false;
-        }
-        return true;
-      }
-      function isHumanTurn() {
-        if(game.gameMode==="hvh")return true;
-        if(game.gameMode==="aih")return game.currentPlayer===2;
-        if(game.gameMode==="hai")return game.currentPlayer===1;
-        if(game.gameMode==="aiai")return false;
-      }
-      function dropPellet(row, col, player, callback) {
-        let pelletsContainer = document.getElementById("pellets");
-        let pellet = document.createElement("div");
-        pellet.classList.add("pellet");
-        pellet.classList.add(player===1?"player1":"player2");
-        pellet.style.left = (gap + col * cellSize) + "px";
-        pellet.style.top = -holeDiameter + "px";
-        let cellsToFall = row + 1;
-        pellet.style.transitionDuration = (cellsToFall * baseDuration) + "ms";
-        pelletsContainer.appendChild(pellet);
-        pellet.getBoundingClientRect();
-        pellet.style.top = (gap + row * cellSize) + "px";
-        pellet.addEventListener("transitionend", function handler(){
-          pellet.removeEventListener("transitionend", handler);
-          callback();
-        });
-      }
-      function makeMove(col) {
-        if(game.gameOver || game.animating)return;
-        let row = getAvailableRow(col);
-        if(row===-1){ updateMessage("Player " + game.currentPlayer + "'s turn (Column is full)."); return; }
-        game.board[row][col] = game.currentPlayer;
-        game.moveSequence += col.toString();
-        game.animating = true;
-        dropPellet(row, col, game.currentPlayer, function(){
-          if(checkWin(row, col, game.currentPlayer)){
-            updateMessage("Player " + game.currentPlayer + " wins!");
-            game.gameOver = true;
-            game.animating = false;
-            return;
-          }
-          if(isBoardFull()){
-            updateMessage("It's a draw!");
-            game.gameOver = true;
-            game.animating = false;
-            return;
-          }
-          game.currentPlayer = game.currentPlayer===1?2:1;
-          updateMessage("Player " + game.currentPlayer + "'s turn" + (isHumanTurn()?"": " (AI thinking...)"));
-          game.animating = false;
-          if(!isHumanTurn() && !game.gameOver){ setTimeout(processAIMove,500); }
-        });
-      }
-      function processAIMove() {
-        if(game.gameOver || game.animating)return;
-        try{
-          let bestMove = getBestMove(game.moveSequence);
-          if(getAvailableRow(bestMove)===-1){
-            for(let c=0; c<cols; c++){
-              if(getAvailableRow(c)!==-1){ bestMove = c; break; }
-            }
-          }
-          makeMove(bestMove);
-        } catch(e){ updateMessage("Error in AI move: " + e.message); }
-      }
-      function startGame() {
-        game.currentPlayer = 1;
-        game.moveSequence = "";
-        game.gameOver = false;
-        game.animating = false;
-        initBoard();
-        document.getElementById("pellets").innerHTML = "";
-        createBoardSVG();
-        game.gameMode = (game.player1IsHuman && game.player2IsHuman) ? "hvh" : (!game.player1IsHuman && game.player2IsHuman) ? "aih" : (game.player1IsHuman && !game.player2IsHuman) ? "hai" : "aiai";
-        updateMessage("Player " + game.currentPlayer + "'s turn" + (isHumanTurn()?"": " (AI thinking...)"));
-        if(!isHumanTurn() && !game.gameOver){ setTimeout(processAIMove,500); }
-      }
-      document.getElementById("board").addEventListener("click", function(e){
-        if(game.gameOver || game.animating)return;
-        if(!isHumanTurn())return;
-        let rect = this.getBoundingClientRect();
-        let x = e.clientX - rect.left;
-        let col = Math.floor((x - gap) / cellSize);
-        if(col < 0)col = 0;
-        if(col >= cols)return;
-        makeMove(col);
-      });
-      document.querySelectorAll(".toggle-switch").forEach(switchEl => {
-        switchEl.addEventListener("click", function(){
-          this.classList.toggle("computer");
-          let player = this.getAttribute("data-player");
-          if(player==="1"){
-            game.player1IsHuman = !this.classList.contains("computer");
-          } else {
-            game.player2IsHuman = !this.classList.contains("computer");
-          }
-        });
-      });
-      document.getElementById("startGame").addEventListener("click", startGame);
-      startGame();
-    </script>
-  </body>
+
+<head>
+	<meta charset="UTF-8">
+	<title>Connect 4</title>
+	<script src="c4i.js"></script>
+	<style>
+	body {
+		font-family: Arial;
+		text-align: center;
+		background-color: #f4f4f4;
+	}
+	
+	button {
+		background-color: #ddd;
+		border: none;
+		border-radius: 20px;
+		padding: 10px 20px;
+		font-size: 16px;
+		cursor: pointer;
+		transition: background-color 0.3s;
+		width: 150px;
+		box-sizing: border-box;
+	}
+	
+	button:hover {
+		background-color: #bbb;
+	}
+	
+	#replayButton {
+		position: fixed;
+		top: 60px;
+		left: 50%;
+		transform: translateX(-50%);
+	}
+	
+	#startGame {
+		position: fixed;
+		top: 110px;
+		left: 50%;
+		transform: translateX(-50%);
+	}
+	
+	#backButton {
+		position: fixed;
+		top: 60px;
+		left: 50%;
+		transform: translateX(-50%);
+	}
+	
+	#saveButton {
+		position: fixed;
+		top: 110px;
+		left: 50%;
+		transform: translateX(-50%);
+	}
+	
+	#message {
+		font-size: 18px;
+		margin: 10px;
+	}
+	
+	#gameContainer {
+		position: relative;
+		width: 540px;
+		height: 465px;
+		margin: 75px auto;
+	}
+	
+	#pellets {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 540px;
+		height: 465px;
+		z-index: 1;
+	}
+	
+	#board {
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: 3;
+		width: 540px;
+		height: 465px;
+		cursor: pointer;
+	}
+	
+	#highlight {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 540px;
+		height: 465px;
+		pointer-events: none;
+		z-index: 4;
+	}
+	
+	.pellet {
+		position: absolute;
+		width: 60px;
+		height: 60px;
+		border-radius: 50%;
+		top: -60px;
+		transition-property: top;
+		transition-timing-function: cubic-bezier(0.47, 0, 0.745, 0.715);
+	}
+	
+	.player1 {
+		background-color: red;
+	}
+	
+	.player2 {
+		background-color: yellow;
+	}
+	
+	.hidden {
+		visibility: hidden;
+		opacity: 0;
+		pointer-events: none;
+	}
+	
+	.visible {
+		visibility: visible;
+		opacity: 1;
+		pointer-events: auto;
+	}
+	
+	#modeToggles {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 150px;
+	}
+	
+	.player-toggle {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		min-width: 100px;
+	}
+	
+	.player-label {
+		margin-bottom: 10px;
+		font-size: 16px;
+	}
+	
+	.toggle-switch {
+		position: relative;
+		width: 80px;
+		height: 40px;
+		background-color: #ddd;
+		border-radius: 20px;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0 5px;
+		box-sizing: border-box;
+		transition: background-color 0.3s;
+	}
+	
+	.toggle-switch.computer .toggle-thumb {
+		left: 45px;
+	}
+	
+	.toggle-switch.disabled {
+		pointer-events: none;
+		opacity: 0.5;
+	}
+	
+	.toggle-thumb {
+		position: absolute;
+		top: 5px;
+		left: 5px;
+		width: 30px;
+		height: 30px;
+		background-color: white;
+		border-radius: 50%;
+		transition: left 0.3s;
+		z-index: 0;
+	}
+	
+	.toggle-switch .icon {
+		width: 24px;
+		height: 24px;
+		position: relative;
+		z-index: 1;
+	}
+	</style>
+</head>
+
+<body>
+	<h1>Connect 4</h1>
+	<button id="replayButton" class="hidden">Replay</button>
+	<button id="startGame" class="visible">Start Game</button>
+	<button id="backButton" class="hidden">Back</button>
+	<button id="saveButton" class="hidden">Save Replay</button>
+	<div id="modeToggles">
+		<div class="player-toggle" id="player1Toggle"> <span class="player-label">Player 1</span>
+			<div class="toggle-switch" data-player="1">
+				<div class="toggle-thumb"></div>
+				<div class="icon icon-human">
+					<svg viewBox="0 0 24 24" width="24" height="24">
+						<circle cx="15" cy="8" r="4" fill="#555" />
+						<path d="M9,20c0-3.3,2.7-6,6-6s6,2.7,6,6" fill="#555" /> </svg>
+				</div>
+				<div class="icon icon-computer">
+					<svg viewBox="0 0 24 24" width="24" height="24">
+						<rect y="4" width="18" height="12" rx="2" ry="2" fill="#555" />
+						<rect x="5" y="18" width="8" height="2" fill="#555" /> </svg>
+				</div>
+			</div>
+		</div>
+		<div class="player-toggle" id="player2Toggle"> <span class="player-label">Player 2</span>
+			<div class="toggle-switch" data-player="2">
+				<div class="toggle-thumb"></div>
+				<div class="icon icon-human">
+					<svg viewBox="0 0 24 24" width="24" height="24">
+						<circle cx="15" cy="8" r="4" fill="#555" />
+						<path d="M9,20c0-3.3,2.7-6,6-6s6,2.7,6,6" fill="#555" /> </svg>
+				</div>
+				<div class="icon icon-computer">
+					<svg viewBox="0 0 24 24" width="24" height="24">
+						<rect y="4" width="18" height="12" rx="2" ry="2" fill="#555" />
+						<rect x="5" y="18" width="8" height="2" fill="#555" /> </svg>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div id="message"></div>
+	<div id="gameContainer">
+		<div id="pellets"></div>
+		<svg id="board"></svg>
+		<svg id="highlight"></svg>
+	</div>
+	<script>
+	const rows = 6,
+		cols = 7,
+		holeDiameter = 60,
+		gap = 15;
+	const cellSize = holeDiameter + gap;
+	const containerWidth = gap + cols * cellSize;
+	const containerHeight = gap + rows * cellSize;
+	const baseDuration = 150;
+	let game = {
+		board: [],
+		currentPlayer: 1,
+		moves: [],
+		gameOver: false,
+		animating: false,
+		player1IsHuman: true,
+		player2IsHuman: true,
+		gameMode: "hvh",
+		lastTile: null,
+		replaying: false,
+		startPlayer1IsHuman: true,
+		startPlayer2IsHuman: true,
+		lastDropEnd: undefined
+	};
+
+	function initBoard() {
+		game.board = [];
+		for(let r = 0; r < rows; r++) {
+			let rowArr = [];
+			for(let c = 0; c < cols; c++) {
+				rowArr.push(0);
+			}
+			game.board.push(rowArr);
+		}
+		updateTileHighlight(null, null);
+	}
+
+	function createBoardSVG() {
+		let svg = document.getElementById("board");
+		let holes = "";
+		for(let r = 0; r < rows; r++) {
+			for(let c = 0; c < cols; c++) {
+				let cx = gap + c * cellSize + holeDiameter / 2;
+				let cy = gap + r * cellSize + holeDiameter / 2;
+				holes += `<circle cx="${cx}" cy="${cy}" r="${holeDiameter/2}" fill="black" />`;
+			}
+		}
+		svg.innerHTML = `<defs><mask id="mask"><rect x="0" y="0" width="${containerWidth}" height="${containerHeight}" fill="white" />${holes}</mask></defs><rect x="0" y="0" width="${containerWidth}" height="${containerHeight}" rx="30" ry="30" fill="blue" mask="url(#mask)" />`;
+	}
+
+	function updateMessage(msg) {
+		document.getElementById("message").innerText = msg;
+	}
+
+	function getAvailableRow(col) {
+		for(let r = rows - 1; r >= 0; r--) {
+			if(game.board[r][col] === 0) return r;
+		}
+		return -1;
+	}
+
+	function checkWin(row, col, player) {
+		function countDirection(r, c, dr, dc) {
+			let count = 0;
+			while(r >= 0 && r < rows && c >= 0 && c < cols && game.board[r][c] === player) {
+				count++;
+				r += dr;
+				c += dc;
+			}
+			return count;
+		}
+		let count = countDirection(row, col, 0, -1) + countDirection(row, col, 0, 1) - 1;
+		if(count >= 4) return true;
+		count = countDirection(row, col, -1, 0) + countDirection(row, col, 1, 0) - 1;
+		if(count >= 4) return true;
+		count = countDirection(row, col, -1, -1) + countDirection(row, col, 1, 1) - 1;
+		if(count >= 4) return true;
+		count = countDirection(row, col, -1, 1) + countDirection(row, col, 1, -1) - 1;
+		return count >= 4;
+	}
+
+	function isBoardFull() {
+		for(let c = 0; c < cols; c++) {
+			if(getAvailableRow(c) !== -1) return false;
+		}
+		return true;
+	}
+
+	function isHumanTurn() {
+		if(game.gameMode === "hvh") return true;
+		if(game.gameMode === "aih") return game.currentPlayer === 2;
+		if(game.gameMode === "hai") return game.currentPlayer === 1;
+		if(game.gameMode === "aiai") return false;
+	}
+
+	function updateTileHighlight(row, col) {
+		const highlightSVG = document.getElementById("highlight");
+		highlightSVG.innerHTML = "";
+		if(row === null || col === null) return;
+		let cx = gap + col * cellSize + holeDiameter / 2;
+		let cy = gap + row * cellSize + holeDiameter / 2;
+		let circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+		circle.setAttribute("cx", cx);
+		circle.setAttribute("cy", cy);
+		circle.setAttribute("r", holeDiameter / 2);
+		circle.setAttribute("fill", "none");
+		circle.setAttribute("stroke", "#0080ff");
+		circle.setAttribute("stroke-width", "4");
+		highlightSVG.appendChild(circle);
+	}
+
+	function dropPellet(row, col, player, callback) {
+		let pelletsContainer = document.getElementById("pellets");
+		let pellet = document.createElement("div");
+		pellet.classList.add("pellet");
+		pellet.classList.add(player === 1 ? "player1" : "player2");
+		pellet.style.left = (gap + col * cellSize) + "px";
+		pellet.style.top = -holeDiameter + "px";
+		let cellsToFall = row + 1;
+		pellet.style.transitionDuration = (cellsToFall * baseDuration) + "ms";
+		pelletsContainer.appendChild(pellet);
+		pellet.getBoundingClientRect();
+		pellet.style.top = (gap + row * cellSize) + "px";
+		pellet.addEventListener("transitionend", function handler() {
+			pellet.removeEventListener("transitionend", handler);
+			callback();
+		});
+	}
+
+	function makeMove(col) {
+		if(game.gameOver || game.animating) return;
+		let row = getAvailableRow(col);
+		if(row === -1) {
+			updateMessage("Player " + game.currentPlayer + "'s turn (Column is full).");
+			return;
+		}
+		game.board[row][col] = game.currentPlayer;
+		game.animating = true;
+		let cellsToFall = row + 1;
+		let animationTime = cellsToFall * baseDuration;
+		let dropStart = Date.now();
+		dropPellet(row, col, game.currentPlayer, function() {
+			let delay = game.lastDropEnd === undefined ? 0 : dropStart - game.lastDropEnd;
+			game.lastDropEnd = dropStart + animationTime;
+			game.moves.push({
+				col, delay, player: game.currentPlayer
+			});
+			game.lastTile = {
+				row, col
+			};
+			updateTileHighlight(row, col);
+			if(checkWin(row, col, game.currentPlayer)) {
+				updateMessage("Player " + game.currentPlayer + " wins!");
+				game.gameOver = true;
+				game.animating = false;
+				showReplayButton();
+				return;
+			}
+			if(isBoardFull()) {
+				updateMessage("It's a draw!");
+				game.gameOver = true;
+				game.animating = false;
+				showReplayButton();
+				return;
+			}
+			game.currentPlayer = game.currentPlayer === 1 ? 2 : 1;
+			updateMessage("Player " + game.currentPlayer + "'s turn" + (isHumanTurn() ? "" : " (AI thinking...)"));
+			game.animating = false;
+			if(!isHumanTurn() && !game.gameOver) {
+				setTimeout(processAIMove, 0);
+			}
+		});
+	}
+
+	function processAIMove() {
+		if(game.gameOver || game.animating) return;
+		try {
+			let bestMove = getBestMove(game.moves.map(m => m.col).join(""));
+			if(getAvailableRow(bestMove) === -1) {
+				for(let c = 0; c < cols; c++) {
+					if(getAvailableRow(c) !== -1) {
+						bestMove = c;
+						break;
+					}
+				}
+			}
+			makeMove(bestMove);
+		} catch(e) {
+			updateMessage("Error in AI move: " + e.message);
+		}
+	}
+
+	function showReplayButton() {
+		document.getElementById("replayButton").classList.remove("hidden");
+		document.getElementById("replayButton").classList.add("visible");
+	}
+
+	function startGame() {
+		game.currentPlayer = 1;
+		game.moves = [];
+		game.gameOver = false;
+		game.animating = false;
+		game.replaying = false;
+		game.lastDropEnd = undefined;
+		game.startPlayer1IsHuman = game.player1IsHuman;
+		game.startPlayer2IsHuman = game.player2IsHuman;
+		initBoard();
+		document.getElementById("pellets").innerHTML = "";
+		createBoardSVG();
+		document.getElementById("replayButton").classList.remove("visible");
+		document.getElementById("replayButton").classList.add("hidden");
+		showNormalControls();
+		enableToggles();
+		game.gameMode = (game.player1IsHuman && game.player2IsHuman) ? "hvh" : (!game.player1IsHuman && game.player2IsHuman) ? "aih" : (game.player1IsHuman && !game.player2IsHuman) ? "hai" : "aiai";
+		updateMessage("Player " + game.currentPlayer + "'s turn" + (isHumanTurn() ? "" : " (AI thinking...)"));
+		if(!isHumanTurn() && !game.gameOver) {
+			setTimeout(processAIMove, 0);
+		}
+	}
+
+	function resetGame() {
+		game.currentPlayer = 1;
+		game.moves = [];
+		game.gameOver = false;
+		game.animating = false;
+		game.replaying = false;
+		game.lastDropEnd = undefined;
+		initBoard();
+		document.getElementById("pellets").innerHTML = "";
+		createBoardSVG();
+		updateMessage("Game reset. Click Start Game to begin.");
+		enableToggles();
+		document.getElementById("replayButton").classList.remove("visible");
+		document.getElementById("replayButton").classList.add("hidden");
+		showNormalControls();
+	}
+
+	function replayMoves() {
+		let simulationBoard = [];
+		for(let r = 0; r < rows; r++) {
+			let rowArr = [];
+			for(let c = 0; c < cols; c++) {
+				rowArr.push(0);
+			}
+			simulationBoard.push(rowArr);
+		}
+		let currentPlayer = 1;
+		let i = 0;
+
+		function nextMove() {
+			if(!game.replaying) return;
+			if(i >= game.moves.length) {
+				updateMessage("Replay finished. Click Back to return.");
+				game.animating = false;
+				return;
+			}
+			let move = game.moves[i];
+			setTimeout(() => {
+				let col = move.col;
+				let row = -1;
+				for(let r = rows - 1; r >= 0; r--) {
+					if(simulationBoard[r][col] === 0) {
+						row = r;
+						break;
+					}
+				}
+				simulationBoard[row][col] = move.player;
+				dropPellet(row, col, move.player, function() {
+					updateTileHighlight(row, col);
+					currentPlayer = currentPlayer === 1 ? 2 : 1;
+					i++;
+					nextMove();
+				});
+			}, move.delay);
+		}
+		nextMove();
+	}
+
+	function startReplay() {
+		game.replaying = true;
+		document.getElementById("highlight").innerHTML = "";
+		updateTogglePositions();
+		disableToggles();
+		document.getElementById("replayButton").classList.remove("visible");
+		document.getElementById("replayButton").classList.add("hidden");
+		showReplayControls();
+		game.animating = true;
+		document.getElementById("pellets").innerHTML = "";
+		createBoardSVG();
+		updateMessage("Replaying game...");
+		replayMoves();
+	}
+
+	function cancelReplay() {
+		game.replaying = false;
+		game.animating = false;
+		enableToggles();
+		showNormalControls();
+		resetGame();
+	}
+	document.getElementById("board").addEventListener("click", function(e) {
+		if(game.gameOver || game.animating || game.replaying) return;
+		if(!isHumanTurn()) return;
+		let rect = this.getBoundingClientRect();
+		let x = e.clientX - rect.left;
+		let col = Math.floor((x - gap) / cellSize);
+		if(col < 0) col = 0;
+		if(col >= cols) return;
+		makeMove(col);
+	});
+	document.querySelectorAll(".toggle-switch").forEach(switchEl => {
+		switchEl.addEventListener("click", function() {
+			if(this.classList.contains("disabled")) return;
+			this.classList.toggle("computer");
+			let player = this.getAttribute("data-player");
+			if(player === "1") {
+				game.player1IsHuman = !this.classList.contains("computer");
+			} else {
+				game.player2IsHuman = !this.classList.contains("computer");
+			}
+		});
+	});
+	document.getElementById("startGame").addEventListener("click", startGame);
+	document.getElementById("replayButton").addEventListener("click", startReplay);
+	document.getElementById("backButton").addEventListener("click", cancelReplay);
+	document.getElementById("saveButton").addEventListener("click", function() {
+		navigator.clipboard.writeText(JSON.stringify(game.moves)).then(() => {
+			updateMessage("Replay copied to clipboard.");
+		}).catch(() => {
+			updateMessage("Failed to copy replay.");
+		});
+	});
+	document.addEventListener("paste", function(e) {
+		let text = e.clipboardData.getData("text/plain");
+		try {
+			let moves = JSON.parse(text);
+			if(Array.isArray(moves)) {
+				resetGame();
+				game.moves = moves;
+				startReplay();
+			} else {
+				updateMessage("Invalid replay data.");
+			}
+		} catch(err) {
+			updateMessage("Invalid replay data.");
+		}
+	});
+
+	function disableToggles() {
+		document.querySelectorAll(".toggle-switch").forEach(switchEl => {
+			switchEl.classList.add("disabled");
+		});
+	}
+
+	function enableToggles() {
+		document.querySelectorAll(".toggle-switch").forEach(switchEl => {
+			switchEl.classList.remove("disabled");
+		});
+	}
+
+	function updateTogglePositions() {
+		document.querySelectorAll(".toggle-switch").forEach(function(switchEl) {
+			let player = switchEl.getAttribute("data-player");
+			if(player === "1") {
+				let mode = game.startPlayer1IsHuman !== undefined ? game.startPlayer1IsHuman : game.player1IsHuman;
+				if(mode) {
+					switchEl.classList.remove("computer");
+				} else {
+					switchEl.classList.add("computer");
+				}
+			} else if(player === "2") {
+				let mode = game.startPlayer2IsHuman !== undefined ? game.startPlayer2IsHuman : game.player2IsHuman;
+				if(mode) {
+					switchEl.classList.remove("computer");
+				} else {
+					switchEl.classList.add("computer");
+				}
+			}
+		});
+	}
+
+	function showNormalControls() {
+		document.getElementById("startGame").classList.remove("hidden");
+		document.getElementById("startGame").classList.add("visible");
+		document.getElementById("backButton").classList.remove("visible");
+		document.getElementById("backButton").classList.add("hidden");
+		document.getElementById("saveButton").classList.remove("visible");
+		document.getElementById("saveButton").classList.add("hidden");
+	}
+
+	function showReplayControls() {
+		document.getElementById("startGame").classList.remove("visible");
+		document.getElementById("startGame").classList.add("hidden");
+		document.getElementById("backButton").classList.remove("hidden");
+		document.getElementById("backButton").classList.add("visible");
+		document.getElementById("saveButton").classList.remove("hidden");
+		document.getElementById("saveButton").classList.add("visible");
+	}
+	startGame();
+	</script>
+</body>
+
 </html>
